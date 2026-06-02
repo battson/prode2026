@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta name="version" content="4.8"> 
+<meta name="version" content="4.9.2"> 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>FIFA World Cup 2026 – Prode</title>
@@ -572,6 +572,8 @@ body{background:var(--black);color:var(--white);font-family:'Montserrat',sans-se
 <div id="app">
   <!-- BANNER -->
   <div id="hero-banner">
+    <!-- Help button top-left -->
+    <button onclick="document.getElementById('help-modal').style.display='flex'" style="position:absolute;top:14px;left:14px;z-index:3;width:26px;height:26px;border-radius:50%;background:rgba(8,8,8,.65);border:1px solid var(--gold-d);color:var(--gold-d);font-family:'Oswald',sans-serif;font-size:.82rem;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;justify-content:center;line-height:1" onmouseover="this.style.borderColor='var(--gold)';this.style.color='var(--gold)'" onmouseout="this.style.borderColor='var(--gold-d)';this.style.color='var(--gold-d)'">?</button>
     <!-- User pill top-right -->
     <div class="hero-user">
       <span class="user-name" id="header-username"></span>
@@ -1790,6 +1792,8 @@ async function renderSidebar() {
     snap.forEach(doc => {
       d = doc.data();
       if (!storage[doc.id]) storage[doc.id] = { scores: d.scores||{}, ko: d.ko||{} };
+      // Always update the profile from Firestore so other users' data is available
+      storage[doc.id].profile = d.profile || {};
     });
   } catch(e) { /* offline */ }
 
@@ -1804,7 +1808,8 @@ async function renderSidebar() {
     isMe = r.u.toLowerCase()===currentUser?.toLowerCase();
     isFirst = i===0;
     rankCls = i===0?'r1':i===1?'r2':i===2?'r3':'';
-    const uProfile = r.u === currentUser ? userProfile : {};
+    // Use live userProfile for current user, stored profile for others
+    const uProfile = r.u === currentUser ? userProfile : (storage[r.u]?.profile || {});
     const uImg = uProfile.favTeamImg || '';
     const uNick = uProfile.nickname || '';
     const displayN = uNick ? `${uNick} <span style="color:var(--muted);font-size:.55rem">(${r.u})</span>` : r.u;
@@ -2072,6 +2077,8 @@ async function renderTabla() {
     snap.forEach(doc => {
       d = doc.data();
       if (!storage[doc.id]) storage[doc.id] = { scores: d.scores||{}, ko: d.ko||{} };
+      // Always update profile so images/nicknames of all users are available
+      storage[doc.id].profile = d.profile || {};
     });
   } catch(e) { console.warn('renderTabla fetch error:', e); }
 
@@ -2096,9 +2103,14 @@ async function renderTabla() {
   rows.forEach((r,i)=>{
     const rankClass = i===0?'gold':i===1?'silver':i===2?'bronze':'';
     isMe = r.u.toLowerCase()===currentUser?.toLowerCase();
+    const uProfile = r.u === currentUser ? userProfile : (storage[r.u]?.profile || {});
+    const uImg = uProfile.favTeamImg || '';
+    const uNick = uProfile.nickname || '';
+    const displayN = uNick ? `${uNick} <span style="color:var(--muted);font-size:.6rem">(${r.u})</span>` : r.u;
+    const avatarHtml = uImg ? `<img src="${uImg}" alt="" style="width:20px;height:20px;object-fit:contain;margin-right:6px;vertical-align:middle" onerror="this.style.display='none'">` : '';
     html+=`<tr class="${isMe?'me':''}">
       <td><div class="lb-rank ${rankClass}">${i+1}</div></td>
-      <td class="lb-name">${r.u}</td>
+      <td class="lb-name">${avatarHtml}${displayN}</td>
       <td class="num lb-pts">${r.total}</td>
       <td class="num lb-exact">⭐ ${r.exact}</td>
       <td class="num lb-winner">✓ ${r.winner}</td>
@@ -2451,10 +2463,10 @@ const STADIUM_BG = {
 };
 
 const BG_OPTIONS = [
-  { id:'lego',    name:'Lego',                url:'https://assets.goal.com/images/v3/blt2d7448450877218b/LEGO%20players%20Hero%20Image.jpg?auto=webp&format=pjpg&width=3840&quality=60', pos:'center 20%'},
+  { id:'lego',    name:'Lego',                url:'https://scontent.faep4-3.fna.fbcdn.net/v/t39.30808-6/661112090_1441197348051832_2996604329880184978_n.jpg?_nc_cat=108&ccb=1-7&_nc_sid=127cfc&_nc_ohc=zZqm74dc6xwQ7kNvwHwW35o&_nc_oc=AdrX7WKol4svrBwCbcacIITPqWILnoU3sIEtK9QgfOyZSZkl9rslzKxxBOdcC3RTaJo&_nc_zt=23&_nc_ht=scontent.faep4-3.fna&_nc_gid=r1wbgYn74pvV94RpGwjbMw&_nc_ss=7b2a8&oh=00_Af_hTrV-oUzvhLOC7v1fZa_kAhKkOvElDoyxz33X-blQUw&oe=6A249221', pos:'center 20%'},
   { id:'diego',   name:'El Diego',            url:'imgs/Diego.jpg',                                                                                                                       pos:'center center'},
-  { id:'goat',    name:'GOAT',                url:'https://imagenes.elpais.com/resizer/v2/PDXAH53OG5ZMFXEZFMTY4LRBEM.jpg?auth=15506dc7edbe0768cd98be6d7c5b84b22f21e08da1c05e821c6b624d586beb3f&width=1960&height=1470&focal=3187%2C1100', pos:'center center'},
-  { id:'cr7',     name:'CR7',                 url:'https://editorial.uefa.com/resources/027b-16a6f83fcf8f-179708787343-1000/cristiano_ronaldo_of_portugal_celebrates_after_scoring_a.jpeg', pos:'center center'},
+  { id:'goat',    name:'GOAT',                url:'https://imagenes.elpais.com/resizer/v2/PDXAH53OG5ZMFXEZFMTY4LRBEM.jpg?auth=15506dc7edbe0768cd98be6d7c5b84b22f21e08da1c05e821c6b624d586beb3f&width=1960&height=1470&focal=3187%2C1100', pos:'center top'},
+  { id:'cr7',     name:'CR7',                 url:'https://editorial.uefa.com/resources/027b-16a6f83fcf8f-179708787343-1000/cristiano_ronaldo_of_portugal_celebrates_after_scoring_a.jpeg', pos:'center top'},
   { id:'arg2022', name:'Argentina 2022',      url:'https://media.cnn.com/api/v1/images/stellar/prod/cnne-1316167-el-mundial-de-qatar-termino-con-la-consagracion-de-argentina-luego-de-36-anos.jpg?c=original', pos:'center center'},
   { id:'arg1986', name:'Argentina 1986',      url:'https://s3.amazonaws.com/arc-wordpress-client-uploads/infobae-wp/wp-content/uploads/2016/06/28212152/Maradona-mundial-1986-copa.jpg', pos:'center center'},
   { id:'campeones',name:'Campeones del Mundo',url:'https://cloudfront-us-east-1.images.arcpublishing.com/infobae/G2JXZ4IN3JEOBHWYK4L5AQQEMA.jpg', pos:'center center'},
@@ -3044,6 +3056,20 @@ async function renderProfileTab() {
       <button onclick="document.getElementById('perfil-reminder-modal').style.display='none';switchTab('prode',document.getElementById('tab-btn-prode'))" style="font-family:'Oswald',sans-serif;font-size:.75rem;letter-spacing:2px;text-transform:uppercase;padding:9px 20px;background:var(--gold);color:var(--black);border:none;border-radius:3px;cursor:pointer;font-weight:700">IR A MI PERFIL</button>
       <button onclick="document.getElementById('perfil-reminder-modal').style.display='none'" style="font-family:'Oswald',sans-serif;font-size:.75rem;letter-spacing:2px;text-transform:uppercase;padding:9px 16px;background:transparent;color:var(--muted2);border:1px solid var(--gray4);border-radius:3px;cursor:pointer">Después</button>
     </div>
+  </div>
+</div>
+<!-- ── HELP MODAL ── -->
+<div id="help-modal" style="display:none;position:fixed;inset:0;z-index:450;background:rgba(0,0,0,.78);align-items:center;justify-content:center">
+  <div style="background:var(--gray2);border:1px solid var(--gold-d);border-radius:8px;padding:28px 32px;width:min(380px,90vw);text-align:center;position:relative;animation:cdFadeIn .25s ease">
+    <button onclick="document.getElementById('help-modal').style.display='none'" style="position:absolute;top:10px;right:14px;background:none;border:none;color:var(--muted);font-size:1.2rem;cursor:pointer;transition:color .2s" onmouseover="this.style.color='var(--white)'" onmouseout="this.style.color='var(--muted)'">✕</button>
+    <div style="font-size:2rem;margin-bottom:8px">❓</div>
+    <div style="font-family:'Bebas Neue',cursive;font-size:1.5rem;letter-spacing:4px;color:var(--gold);margin-bottom:14px">AYUDA</div>
+    <p style="font-family:'Oswald',sans-serif;font-size:.84rem;color:var(--white);line-height:1.8;margin-bottom:20px">
+      Ante cualquier inconveniente presionar<br>
+      <span style="display:inline-block;margin-top:8px;background:var(--gray3);border:1px solid var(--gold-d);border-radius:4px;padding:6px 16px;font-family:'Bebas Neue',cursive;font-size:1.1rem;letter-spacing:3px;color:var(--gold)">Ctrl + Shift + R</span><br>
+      <span style="font-size:.72rem;color:var(--muted);margin-top:6px;display:block">siempre funciona.</span>
+    </p>
+    <button onclick="document.getElementById('help-modal').style.display='none'" style="font-family:'Oswald',sans-serif;font-size:.75rem;letter-spacing:2px;text-transform:uppercase;padding:9px 24px;background:var(--gold);color:var(--black);border:none;border-radius:3px;cursor:pointer;font-weight:700;transition:background .2s" onmouseover="this.style.background='var(--gold-l)'" onmouseout="this.style.background='var(--gold)'">Entendido</button>
   </div>
 </div>
 </body>
