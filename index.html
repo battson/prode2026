@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta name="version" content="4.9.2"> 
+<meta name="version" content="5.0"> 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>FIFA World Cup 2026 – Prode</title>
@@ -594,15 +594,25 @@ body{background:var(--black);color:var(--white);font-family:'Montserrat',sans-se
     <!-- MAIN AREA -->
     <div class="main-area">
       <div class="tabs" id="tabs-row">
-        <button class="tab-btn active" data-tab="grupos">Fase de Grupos</button>
-        <button class="tab-btn"        data-tab="llaves">Eliminatorias</button>
-        <button class="tab-btn"        data-tab="tabla">Tabla Global</button>
+        <button class="tab-btn active"  data-tab="partidos">Partidos</button>
+        <button class="tab-btn"         data-tab="grupos">Fase de Grupos</button>
+        <button class="tab-btn"         data-tab="llaves">Eliminatorias</button>
+        <button class="tab-btn"         data-tab="tabla">Tabla Global</button>
         <button class="tab-btn tab-btn-perfil" data-tab="prode" id="tab-btn-prode">Mi Perfil</button>
         <button class="tab-btn admin-only" id="tab-btn-admin" data-tab="admin" style="display:none">⚙ Admin</button>
       </div>
       <div class="content">
+    <!-- PARTIDOS POR FECHA -->
+    <div id="tab-partidos" class="tab-panel active">
+      <div class="gold-div"></div>
+      <div class="controls">
+        <button class="btn btn-green" id="save-partidos-btn">💾 Guardar Fase de Grupos</button>
+        <button class="btn btn-danger" id="clear-prode-partidos-btn">🗑 Vaciar mi Prode</button>
+      </div>
+      <div id="partidos-container"></div>
+    </div>
     <!-- GRUPOS -->
-    <div id="tab-grupos" class="tab-panel active">
+    <div id="tab-grupos" class="tab-panel">
       <div class="gold-div"></div>
       <div class="controls">
         <button class="btn btn-green" id="save-grupos-btn">💾 Guardar Fase de Grupos</button>
@@ -1097,8 +1107,10 @@ document.addEventListener('DOMContentLoaded', function() {
   // Save prode
   // Save buttons
   document.getElementById('save-grupos-btn').addEventListener('click', saveGrupos);
+  document.getElementById('save-partidos-btn').addEventListener('click', saveGrupos);
   document.getElementById('save-llaves-btn').addEventListener('click', saveLlaves);
   document.getElementById('clear-prode-btn').addEventListener('click', clearProde);
+  document.getElementById('clear-prode-partidos-btn').addEventListener('click', clearProde);
   document.getElementById('confirm-yes-btn').addEventListener('click', doClearProde);
   document.getElementById('confirm-no-btn').addEventListener('click', cancelClearProde);
 
@@ -1330,6 +1342,7 @@ function saveGrupos() {
   renderProdeTab();
   renderTabla();
   renderBracket(userKO);
+  renderPartidos();
 }
 
 function saveLlaves() {
@@ -1483,6 +1496,7 @@ function doClearProde() {
   userKO = buildEmptyKO();
 
   renderGroups();
+  renderPartidos();
   buildBracketFromGroups();
   renderBracket(userKO);
   showToast('Prode vaciado — recordá guardar si querés conservar los cambios.');
@@ -1761,6 +1775,7 @@ function saveGrupos() {
   renderProdeTab();
   renderTabla();
   renderBracket(userKO);
+  renderPartidos();
 }
 
 function saveLlaves() {
@@ -1906,6 +1921,7 @@ function doClearProde() {
   userKO = buildEmptyKO();
 
   renderGroups();
+  renderPartidos();
   buildBracketFromGroups();
   renderBracket(userKO);
   showToast('Prode vaciado — recordá guardar si querés conservar los cambios.');
@@ -1970,8 +1986,111 @@ function renderGroupStandingsOnly(gKey) {
 }
 
 // ════════════════════════════════════════════════════════════
-//  PRODE TAB
+//  RENDER PARTIDOS (todos los partidos, ordenados por fecha)
 // ════════════════════════════════════════════════════════════
+function renderPartidos() {
+  const container = document.getElementById('partidos-container');
+  if (!container) return;
+
+  // Collect all matches across all groups with their gKey and idx
+  const allMatches = [];
+  Object.keys(GROUPS_DEF).forEach(gKey => {
+    GROUPS_DEF[gKey].matches.forEach((m, idx) => {
+      allMatches.push({ gKey, idx, m });
+    });
+  });
+
+  // Sort by date + time
+  allMatches.sort((a, b) => {
+    const da = a.m.date + 'T' + (a.m.time || '00:00');
+    const db_ = b.m.date + 'T' + (b.m.time || '00:00');
+    return da < db_ ? -1 : da > db_ ? 1 : 0;
+  });
+
+  // Group by date for display
+  const byDate = {};
+  const dateOrder = [];
+  allMatches.forEach(({ gKey, idx, m }) => {
+    if (!byDate[m.date]) { byDate[m.date] = []; dateOrder.push(m.date); }
+    byDate[m.date].push({ gKey, idx, m });
+  });
+
+  let html = '';
+  dateOrder.forEach(date => {
+    const [y, mo, d] = date.split('-').map(Number);
+    const dateLabel = `${String(d).padStart(2,'0')}/${String(mo).padStart(2,'0')}/${y}`;
+    html += `<div style="margin-bottom:22px">
+      <div style="font-family:'Bebas Neue',cursive;font-size:1rem;letter-spacing:5px;color:var(--gold);margin-bottom:10px;display:flex;align-items:center;gap:10px">
+        📅 ${dateLabel}<span style="flex:1;height:1px;background:var(--gold-d);display:block"></span>
+      </div>
+      <div class="match-list">`;
+
+    byDate[date].forEach(({ gKey, idx, m }) => {
+      const s = userGroupScores[gKey][idx];
+      const open = isMatchOpen(m.date);
+      const real = realResults[gKey]?.[idx];
+      const hv = s.hs === '' ? '' : s.hs;
+      const av = s.as === '' ? '' : s.as;
+      const dateLabel2 = formatDate(m.date, m.time);
+      const groupBadge = `<span style="font-family:'Oswald',sans-serif;font-size:.55rem;letter-spacing:2px;color:var(--muted);background:var(--gray3);padding:2px 6px;border-radius:2px">Grupo ${gKey}</span>`;
+
+      let rowClass = 'mrow ';
+      let content = '';
+
+      if (real) {
+        const pHs = parseInt(hv), pAs = parseInt(av);
+        const rHs = parseInt(real.hs), rAs = parseInt(real.as);
+        const hasInput = !isNaN(pHs) && !isNaN(pAs);
+        if (hasInput) {
+          if (pHs === rHs && pAs === rAs) rowClass += 'hit-exact';
+          else {
+            const pW = pHs > pAs ? 'h' : pHs < pAs ? 'a' : 'd';
+            const rW = rHs > rAs ? 'h' : rHs < rAs ? 'a' : 'd';
+            rowClass += pW === rW ? 'hit-winner' : 'hit-miss';
+          }
+        } else rowClass += 'closed';
+        content = `${groupBadge}
+          <span class="mteam">${flagImg(m.h, 26, 17)} ${m.h}</span>
+          <span class="mscore"><span class="closed-score">${hv || '—'}</span><span class="sdash">:</span><span class="closed-score">${av || '—'}</span></span>
+          <span class="mteam r">${m.a} ${flagImg(m.a, 26, 17)}</span>
+          <span class="real-score">Real: ${real.hs}–${real.as}</span>`;
+      } else if (open) {
+        rowClass += 'open';
+        content = `${groupBadge}
+          <span class="mteam">${flagImg(m.h, 26, 17)} ${m.h}</span>
+          <span class="mscore">
+            <input class="sinput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" value="${hv}" placeholder="–"
+              oninput="setUserScore('${gKey}',${idx},'h',this.value);syncPartidosInput('${gKey}',${idx},'h',this.value)">
+            <span class="sdash">:</span>
+            <input class="sinput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" value="${av}" placeholder="–"
+              oninput="setUserScore('${gKey}',${idx},'a',this.value);syncPartidosInput('${gKey}',${idx},'a',this.value)">
+          </span>
+          <span class="mteam r">${m.a} ${flagImg(m.a, 26, 17)}</span>
+          <span class="match-date">${dateLabel2}</span>`;
+      } else {
+        rowClass += 'closed';
+        content = `${groupBadge}
+          <span class="mteam">${flagImg(m.h, 26, 17)} ${m.h}</span>
+          <span class="mscore"><span class="closed-score">${hv || '—'}</span><span class="sdash">:</span><span class="closed-score">${av || '—'}</span></span>
+          <span class="mteam r">${m.a} ${flagImg(m.a, 26, 17)}</span>
+          <span class="lock-icon">🔒</span>`;
+      }
+      html += `<div class="${rowClass}">${content}</div>`;
+    });
+
+    html += `</div></div>`;
+  });
+
+  container.innerHTML = html;
+}
+
+// Keep partidos inputs in sync (re-render standings in grupos if visible, but no full re-render needed)
+function syncPartidosInput(gKey, idx, side, val) {
+  // userGroupScores is already updated by setUserScore — nothing extra needed
+  // If grupos tab is active, its panel will auto-update via setUserScore → renderGroupStandingsOnly
+}
+
+
 function getOutcome(hs, as) {
   if (hs > as) return 'h';
   if (as > hs) return 'a';
@@ -2311,6 +2430,8 @@ function switchTab(tab,btn){
   document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
   document.getElementById('tab-'+tab).classList.add('active');
   if(btn) btn.classList.add('active');
+  if(tab==='partidos'){renderPartidos();}
+  if(tab==='grupos'){renderGroups();}
   if(tab==='prode'){renderProfileTab();}
   if(tab==='llaves'){
     buildBracketFromGroups();
@@ -2321,6 +2442,7 @@ function switchTab(tab,btn){
 }
 
 function renderAll(){
+  renderPartidos();
   renderGroups();
   buildBracketFromGroups();
   renderBracket(userKO || buildEmptyKO());
